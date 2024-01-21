@@ -72,6 +72,9 @@ public:
 
     void Get_Energy_and_kinkdensity();
 
+    void Get_Entropy();
+    void Get_MI();
+    void Diagonalize_for_eigvals(Matrix<complex<double>> &MatTemp, Mat_1_doub &EigvalTemp);
     Parameters &Parameters_;
     int ns_;
     Matrix<complex<double>> HTB_;
@@ -392,8 +395,51 @@ void Hamiltonian::Initialize(){
     dt_ = Parameters_.dt_;
 
     t_butterfly=Parameters_.t_butterfly;
-    t_butterfly_slice= int((t_butterfly/dt_)+0.5) + 1;
+    t_butterfly_slice= int((t_butterfly/dt_)+0.5);
 } // ----------
+
+
+
+
+void Hamiltonian::Diagonalize_for_eigvals(Matrix<complex<double>> &MatTemp, Mat_1_doub &EigvalTemp){
+
+    //extern "C" void   zheev_(char *,char *,int *,std::complex<double> *, int *, double *,
+    //                       std::complex<double> *,int *, double *, int *);
+
+
+    char jobz='N';
+    char uplo='L'; //WHY ONLY 'L' WORKS?
+    int n=MatTemp.n_row();
+    int lda=MatTemp.n_col();
+    vector<complex<double>> work(3);
+    vector<double> rwork(3*n -2);
+    int info;
+    int lwork= -1;
+
+    EigvalTemp.resize(MatTemp.n_row());
+    fill(EigvalTemp.begin(),EigvalTemp.end(),0);
+    // query:
+    zheev_(&jobz,&uplo,&n,&(MatTemp(0,0)),&lda,&(EigvalTemp[0]),&(work[0]),&lwork,&(rwork[0]),&info);
+    //lwork = int(real(work[0]))+1;
+    lwork = int((work[0].real()));
+    work.resize(lwork);
+    // real work:
+    zheev_(&jobz,&uplo,&n,&(MatTemp(0,0)),&lda,&(EigvalTemp[0]),&(work[0]),&lwork,&(rwork[0]),&info);
+    if (info!=0) {
+        std::cerr<<"info="<<info<<"\n";
+        perror("diag: zheev: failed with info!=0.\n");
+    }
+
+    // Ham_.print();
+
+    //  for(int i=0;i<eigs_.size();i++){
+    //    cout<<eigs_[i]<<endl;
+    //}
+
+
+}
+
+
 
 void Hamiltonian::Diagonalize(char option){
 
@@ -632,6 +678,180 @@ void Hamiltonian::Get_static_2pointSzSzCorrelationMatrix(){
 }
 */
 
+
+
+void Hamiltonian::Get_Entropy(){
+
+    int n_SitesA;
+    double Entropy_A;
+    double eps=1e-10;
+   // cout<<"eps = "<<eps<<endl;
+   // cout<<"log2(8) = "<<log2(8.0)<<endl;
+
+    Mat_1_int time_array, index_array;
+
+    Matrix<complex<double>> Cmat;
+    Mat_1_doub vm_;
+
+    int fraction = int ((Parameters_.dt_measure/Parameters_.dt_)+0.5);
+
+    string fileout = "Entropy_l_and_Nminusl.txt";
+    ofstream fileout_str(fileout.c_str());
+    fileout_str<<"#time   n_sites[0-l]  Entropy[0-l]"<<endl;
+
+    for(int time_slice_1=0;time_slice_1<=Parameters_.t_measure_slice;time_slice_1=time_slice_1+fraction){
+
+        for(int site_l=0;site_l<=(ns_/2);site_l++){
+        n_SitesA=site_l+1;
+
+        Cmat.resize(n_SitesA*2,n_SitesA*2);
+        Cmat.fill(0.0);
+
+        for(int i=0;i<2*n_SitesA;i++){
+            for(int j=0;j<2*n_SitesA;j++){
+                Cmat(i,j)=Get_Xi_2pointCorr(i,time_slice_1,j, time_slice_1);
+            }
+        }
+
+        Diagonalize_for_eigvals(Cmat, vm_);
+
+        Entropy_A=0;
+
+
+        for(int n=0;n<vm_.size();n++){
+            if(vm_[n]>0){
+            double pm=(vm_[n])/2.0;
+            Entropy_A += (-1.0*pm)*log(pm);
+            }
+        }
+
+
+        fileout_str<<time_slice_1*dt_<<"   "<< n_SitesA<<"  "<<Entropy_A<<endl;
+
+
+        }
+        fileout_str<<endl;
+
+    }
+
+}
+
+
+
+void Hamiltonian::Get_MI(){
+
+    assert(ns_%2==0);
+
+    int n_SitesB;
+    int n_Sites_ApB;
+    double Entropy_A; //[N/2-l .... N/2-1]
+    double Entropy_B; //[N/2 .... N/2+l-1]
+    double Entropy_ApB;
+    double MI_bw_A_and_B;
+    double eps=1e-10;
+    int ip,jp;
+   // cout<<"eps = "<<eps<<endl;
+   // cout<<"log2(8) = "<<log2(8.0)<<endl;
+
+    Mat_1_int time_array, index_array;
+
+    Matrix<complex<double>> CmatA, CmatB, CmatApB;
+    Mat_1_doub vm_;
+    double pm;
+
+    int fraction = int((Parameters_.dt_measure/Parameters_.dt_)+0.5);
+
+    string fileout = "MI_bw_A_and_B.txt";
+    ofstream fileout_str(fileout.c_str());
+    fileout_str<<"#time   size(A)=l  MI_A_and_B    SA    SB   SAB"<<endl;
+
+    for(int time_slice_1=0;time_slice_1<=Parameters_.t_measure_slice;time_slice_1=time_slice_1+fraction){
+
+        for(int n_SitesA=1;n_SitesA<=(ns_/2);n_SitesA++){
+
+        CmatA.resize(n_SitesA*2,n_SitesA*2);
+        CmatA.fill(0.0);
+        for(int i=(ns_/2)-n_SitesA;i<=(ns_/2)-1;i++){
+            for(int j=(ns_/2)-n_SitesA;j<=(ns_/2)-1;j++){
+
+                ip=i-((ns_/2)-n_SitesA);
+                jp=j-((ns_/2)-n_SitesA);
+
+                for(int type1=0;type1<2;type1++){
+                for(int type2=0;type2<2;type2++){
+                CmatA(2*ip+type1,2*jp+type2)=Get_Xi_2pointCorr(2*i+type1,time_slice_1,2*j+type2, time_slice_1);
+                }}
+
+           }
+        }
+
+
+        CmatB.resize(n_SitesA*2,n_SitesA*2);
+        CmatB.fill(0.0);
+        for(int i=(ns_/2);i<=(ns_/2)+n_SitesA-1;i++){
+            for(int j=(ns_/2);j<=(ns_/2)+n_SitesA-1;j++){
+                ip = i- (ns_/2);
+                jp = j- (ns_/2);
+                for(int type1=0;type1<2;type1++){
+                for(int type2=0;type2<2;type2++){
+                CmatB(2*ip+type1,2*jp+type2)=Get_Xi_2pointCorr(2*i+type1,time_slice_1,2*j+type2, time_slice_1);
+                }}
+           }
+        }
+
+
+        CmatApB.resize(n_SitesA*4,n_SitesA*4);
+        CmatApB.fill(0.0);
+        for(int i=(ns_/2)-n_SitesA;i<=(ns_/2)+n_SitesA-1;i++){
+            for(int j=(ns_/2)-n_SitesA;j<=(ns_/2)+n_SitesA-1;j++){
+                ip = i - ((ns_/2)-n_SitesA);
+                jp = j - ((ns_/2)-n_SitesA);
+                for(int type1=0;type1<2;type1++){
+                for(int type2=0;type2<2;type2++){
+                CmatApB(2*ip+type1,2*jp+type2)=Get_Xi_2pointCorr(2*i+type1,time_slice_1,2*j+type2, time_slice_1);
+                }}
+           }
+        }
+
+        Diagonalize_for_eigvals(CmatA, vm_);
+        Entropy_A=0;
+        for(int n=0;n<vm_.size();n++){
+            if(vm_[n]>0){
+            pm=(vm_[n])/2.0;
+            Entropy_A += (-1.0*pm)*log(pm);
+            }
+        }
+
+
+        Diagonalize_for_eigvals(CmatB, vm_);
+        Entropy_B=0;
+        for(int n=0;n<vm_.size();n++){
+            if(vm_[n]>0){
+            pm=(vm_[n])/2.0;
+            Entropy_B += (-1.0*pm)*log(pm);
+            }
+        }
+
+        Diagonalize_for_eigvals(CmatApB, vm_);
+        Entropy_ApB=0;
+        for(int n=0;n<vm_.size();n++){
+            if(vm_[n]>0){
+            pm=(vm_[n])/2.0;
+            Entropy_ApB += (-1.0*pm)*log(pm);
+            }
+        }
+
+
+        MI_bw_A_and_B = Entropy_A + Entropy_B -Entropy_ApB;
+        fileout_str<<time_slice_1*dt_<<"   "<< n_SitesA<<"  "<<MI_bw_A_and_B<<"   "<<Entropy_A<<"  "<<Entropy_B<<"  "<<Entropy_ApB<<endl;
+
+
+        }
+        fileout_str<<endl;
+
+    }
+
+}
 
 void Hamiltonian::Get_2pointSzSzcorrelations(){
 

@@ -75,9 +75,9 @@ void Parameters::Initialize(string inputfile_){
     t_measure = matchstring(inputfile_,"t_measure");
     t_butterfly =matchstring(inputfile_,"t_butterfly");
 
-    assert(dt_measure>dt_);
+    assert(dt_measure>=dt_);
 
-    t_measure_slice = int((t_measure/dt_)+0.5) + 1;
+    t_measure_slice = int((t_measure/dt_)+0.5);
     No_TimeSlices = int((t_anneal/dt_)+0.5) + 1;
 
     //dw_dos, eta_dos

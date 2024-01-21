@@ -45,6 +45,8 @@ int main(int argc, char *argv[]) {
         Hamiltonian_.Save_B_matrices();
 
         Hamiltonian_.Get_Energy_and_kinkdensity();
+        Hamiltonian_.Get_Entropy();
+        Hamiltonian_.Get_MI();
         //Hamiltonian_.Bob_Sx_diff();
         Hamiltonian_.Get_2pointSzSzcorrelations();
         //Hamiltonian_.Get_4pointSxSxcorrelations();

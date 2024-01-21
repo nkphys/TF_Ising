@@ -1,4 +1,4 @@
-Total_sites=120
+Total_sites=8
 Hx=1.0
 Jzz=-1.8
 
@@ -11,13 +11,13 @@ Disorder_Strength=0
 Temperature=0.00001
 
 Use_Scheduler=true
-Scheduler_File=dmrg_sched.txt
+Scheduler_File=dmrg_sched.csv
 
-dt=0.01
+dt=0.001
 t_anneal=7.0
 
-dt_measure=0.1
+dt_measure=0.001
 t_measure=7.0
-t_butterfly=1.0
+t_butterfly=0.0
 
 

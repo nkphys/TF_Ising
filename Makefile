@@ -25,7 +25,7 @@ LDFLAGS  = libpfapack.a -llapack -lblas
 ### --- turn on for debugging -----------
 CPPFLAGS += -Isrc
 #CPPFLAGS += -Wall -Werror -Wextra #### This enables warnings with extra debugging
-CPPFLAGS += #-g3 #### link gdb to file system of program
+#CPPFLAGS += -g3 #### link gdb to file system of program
 CPPFLAGS += -O3 #### Reduce compilation time and make debugging produce the expected results.
 #CPPFLAGS += -g #### link gdb to file system of program
 STRIP_COMMAND = true #### Keeps lines in the executable for debugging
