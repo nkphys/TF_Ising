@@ -20,6 +20,7 @@ public:
     double Jzz;
 
     double Disorder_Strength, DisorderSeed;
+    double Disorder_mean;
 
     double dw_dos, eta_dos;
     double w_min, w_max;
@@ -67,6 +68,7 @@ void Parameters::Initialize(string inputfile_){
     ReadDisorderString = matchstring2(inputfile_,"ReadDisorderConf");
     DisorderTypeString = matchstring2(inputfile_,"DisorderType");
     Disorder_Strength = matchstring(inputfile_,"Disorder_Strength");
+    Disorder_mean = matchstring(inputfile_,"Disorder_mean");
     Temperature = matchstring(inputfile_,"Temperature");
 
 

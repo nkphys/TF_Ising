@@ -454,7 +454,7 @@ void Hamiltonian::Initialize(){
          Jzz_Dis_conf(i,i_neigh)= 1.0*random_real()*Parameters_.Disorder_Strength;
          }
          else if(Parameters_.DisorderTypeString=="Real"){
-         Jzz_Dis_conf(i,i_neigh)= 1.0*(random_real()-0.5)*Parameters_.Disorder_Strength;
+         Jzz_Dis_conf(i,i_neigh)= Parameters_.Disorder_mean + (1.0*(random_real()-0.5)*Parameters_.Disorder_Strength);
          }
          else{
              cout<<"Choose disordertype carefully in the input file"<<endl;

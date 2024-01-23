@@ -3,14 +3,15 @@ Hx=1.0
 Jzz=-1.0
 
 
-AddDisorder=false
+AddDisorder=true
 
 DisorderSeed=10
 
 ReadDisorderConf=false
 DisorderSeedFile=file.txt
 
-Disorder_Strength=1
+Disorder_mean=1.0
+Disorder_Strength=0.4
 
 DisorderType=Real
 #Precision_1
@@ -24,7 +25,7 @@ Scheduler_File=dmrg_sched.csv
 dt=0.01
 t_anneal=7.0
 
-dt_measure=0.01
+dt_measure=0.1
 t_measure=7.0
 t_butterfly=0.0
 
