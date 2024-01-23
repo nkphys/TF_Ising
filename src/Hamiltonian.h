@@ -4,6 +4,9 @@
 #include "tensor_type.h"
 #include "Parameters.h"
 #include "pfapack.h"
+#include "random"
+#include <stdlib.h>
+
 #define PI acos(-1.0)
 
 #ifndef Hamiltonian_class
@@ -34,8 +37,8 @@ extern "C" void zgesvd_ (char *, char *, int *, int *, std::complex<double> *,
 class Hamiltonian {
 public:
 
-    Hamiltonian(Parameters& Parameters__)
-        :Parameters_(Parameters__)
+    Hamiltonian(Parameters& Parameters__, mt19937_64 &Generator1__)
+        :Parameters_(Parameters__), Generator1_(Generator1__)
     {
         Initialize();
         Create_Scheduler();
@@ -75,6 +78,9 @@ public:
     void Get_Entropy();
     void Get_MI();
     void Diagonalize_for_eigvals(Matrix<complex<double>> &MatTemp, Mat_1_doub &EigvalTemp);
+
+    double random_real();
+    int random_Precision1();
     Parameters &Parameters_;
     int ns_;
     Matrix<complex<double>> HTB_;
@@ -87,6 +93,7 @@ public:
     Mat_1_real Gamma_;
     Mat_1_real Js_;
 
+    Matrix<double> Jzz_Dis_conf;
     int No_TimeSlices;
     double Time_max;
     double dt_;
@@ -99,8 +106,33 @@ public:
 
     Mat_2_Complex_doub Static_Corr;
 
+    mt19937_64 &Generator1_; //for random disorder
+    uniform_real_distribution<double> dis1_;
+
 
 };
+
+
+
+double Hamiltonian::random_real()
+{
+    return dis1_(Generator1_);
+}
+
+
+int Hamiltonian::random_Precision1()
+{
+    int mag_one;
+    double temp = dis1_(Generator1_);
+    if(temp>=0.5){
+    mag_one=-1.0;
+    }
+    else{
+    mag_one=1.0;
+    }
+    return mag_one;
+}
+
 
 
 complex<double> Hamiltonian::Pfaffian(Matrix<complex<double>> & A){
@@ -135,6 +167,8 @@ void Hamiltonian::Get_A_matrix(int time_slice, Mat_2_Complex_doub &A_mat){
 
 assert(time_slice>0);
 
+int site_m, site_mp1, site_mm1;
+
 A_mat.resize(2*ns_);
 for(int i=0;i<2*ns_;i++){
 A_mat[i].resize(2*ns_);
@@ -144,13 +178,18 @@ A_mat[i].resize(2*ns_);
 Ham_.resize(2*ns_, 2*ns_);
 
 for(int m=0;m<2*ns_;m++){
+    //m=2*site_m + type;
+
+    site_m = int(m/2);
+
 
     if(m%2==0){
     if((m+1)<2*ns_){
     Ham_(m,m+1) = -0.5*iota_complex*Parameters_.Hx*Gamma_[time_slice-1];
     }
     if((m-1)>=0){
-    Ham_(m,m-1)=  0.5*iota_complex*Parameters_.Jzz*Js_[time_slice-1];
+    site_mm1 = int((m-1)/2);
+    Ham_(m,m-1)=  0.5*iota_complex*Parameters_.Jzz*Js_[time_slice-1]*Jzz_Dis_conf(site_m,site_mm1);
     }
     }
     else{ //m is odd
@@ -158,7 +197,8 @@ for(int m=0;m<2*ns_;m++){
         Ham_(m,m-1) = 0.5*iota_complex*Parameters_.Hx*Gamma_[time_slice-1];
         }
         if((m+1)<2*ns_){
-        Ham_(m,m+1)=  -0.5*iota_complex*Parameters_.Jzz*Js_[time_slice-1];
+        site_mp1 = int((m+1)/2);
+        Ham_(m,m+1)=  -0.5*iota_complex*Parameters_.Jzz*Js_[time_slice-1]*Jzz_Dis_conf(site_m,site_mp1);
         }
     }
 
@@ -396,6 +436,40 @@ void Hamiltonian::Initialize(){
 
     t_butterfly=Parameters_.t_butterfly;
     t_butterfly_slice= int((t_butterfly/dt_)+0.5);
+
+
+    Jzz_Dis_conf.resize(ns_,ns_);
+    Jzz_Dis_conf.fill(0.0);
+    int i_neigh;
+    for(int i=0;i<ns_;i++){
+
+        i_neigh=i+1;
+        if(i_neigh<ns_){ //OBC
+
+         if(Parameters_.AddDisorder){
+         if(Parameters_.DisorderTypeString=="Precision_1"){
+         Jzz_Dis_conf(i,i_neigh)= random_Precision1()*Parameters_.Disorder_Strength;
+         }
+         else if(Parameters_.DisorderTypeString=="RealPositive"){
+         Jzz_Dis_conf(i,i_neigh)= 1.0*random_real()*Parameters_.Disorder_Strength;
+         }
+         else if(Parameters_.DisorderTypeString=="Real"){
+         Jzz_Dis_conf(i,i_neigh)= 1.0*(random_real()-0.5)*Parameters_.Disorder_Strength;
+         }
+         else{
+             cout<<"Choose disordertype carefully in the input file"<<endl;
+             assert(false);
+         }
+            }
+            else{
+            Jzz_Dis_conf(i,i_neigh)=1.0;
+            }
+
+         Jzz_Dis_conf(i_neigh,i)=Jzz_Dis_conf(i,i_neigh);
+        }
+    }
+
+
 } // ----------
 
 
@@ -486,7 +560,7 @@ void Hamiltonian::Create_M_mat(){
     for(int i=0;i<ns_;i++){
      M_mat(i,i)=Parameters_.Hx*Gamma_[0];
      if(i<ns_-1){//OBC
-     M_mat(i,i+1)=-1.0*Parameters_.Jzz*(Js_[0]);
+     M_mat(i,i+1)=-1.0*Parameters_.Jzz*(Js_[0])*Jzz_Dis_conf(i,i+1);
      }
     }
 
@@ -557,12 +631,12 @@ void Hamiltonian::Get_Energy_and_kinkdensity(){
     fileout_str<<"#time Energy(t)  kinkdensity(t)"<<endl;
 
     complex<double> energy;
-    for(int time_slice=0;time_slice<Parameters_.t_measure_slice;time_slice++){
+    for(int time_slice=0;time_slice<=Parameters_.t_measure_slice;time_slice++){
 
     energy=0.0;
     kinkdensity=0.0;
     for(int n=0;n<ns_-1;n++){
-        energy += -1.0*iota_complex*Parameters_.Jzz*Js_[time_slice]*
+        energy += -1.0*iota_complex*Parameters_.Jzz*Js_[time_slice]*Jzz_Dis_conf(n,n+1)*
                    Get_Xi_2pointCorr(2*n+1, time_slice, 2*n+2,time_slice);
         kinkdensity +=(1.0/ns_)*((1.0*one_complex) + iota_complex*Get_Xi_2pointCorr(2*n+1, time_slice, 2*n+2,time_slice))*0.5;
     }

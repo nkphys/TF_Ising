@@ -38,7 +38,11 @@ int main(int argc, char *argv[]) {
         Parameters Parameters_;
         Parameters_.Initialize(inputfile_);
 
-        Hamiltonian Hamiltonian_(Parameters_);
+
+        mt19937_64 Generator_(Parameters_.DisorderSeed); //for random fields
+
+
+        Hamiltonian Hamiltonian_(Parameters_, Generator_);
         Hamiltonian_.Save_Static_Corr();
 
 

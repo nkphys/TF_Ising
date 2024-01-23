@@ -19,7 +19,7 @@ public:
     double Hx;
     double Jzz;
 
-    double Disorder_Strength, RandomDisorderSeed;
+    double Disorder_Strength, DisorderSeed;
 
     double dw_dos, eta_dos;
     double w_min, w_max;
@@ -36,6 +36,10 @@ public:
     bool ReadDisorder;
     string ReadDisorderString;
     string DisorderSeedFile;
+    string DisorderTypeString;
+
+    string AddDisorderString;
+    bool AddDisorder;
 
     char Dflag;
 
@@ -57,10 +61,14 @@ void Parameters::Initialize(string inputfile_){
 
     NSites = int(matchstring(inputfile_,"Total_sites"));
 
-    RandomDisorderSeed = int(matchstring(inputfile_,"RandomDisorderSeed"));
+
+    AddDisorderString = matchstring2(inputfile_,"AddDisorder");
+    DisorderSeed = int(matchstring(inputfile_,"DisorderSeed"));
     ReadDisorderString = matchstring2(inputfile_,"ReadDisorderConf");
+    DisorderTypeString = matchstring2(inputfile_,"DisorderType");
     Disorder_Strength = matchstring(inputfile_,"Disorder_Strength");
     Temperature = matchstring(inputfile_,"Temperature");
+
 
     Hx = matchstring(inputfile_,"Hx");
     Jzz = matchstring(inputfile_,"Jzz");
@@ -93,6 +101,15 @@ void Parameters::Initialize(string inputfile_){
     }
     else{
         ReadDisorder = false;
+    }
+
+
+
+    if(AddDisorderString=="true"){
+        AddDisorder = true;
+    }
+    else{
+        AddDisorder =false;
     }
 
 

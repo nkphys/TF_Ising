@@ -1,22 +1,30 @@
-Total_sites=8
+Total_sites=40
 Hx=1.0
-Jzz=-1.8
+Jzz=-1.0
 
-RandomDisorderSeed=10
+
+AddDisorder=false
+
+DisorderSeed=10
+
 ReadDisorderConf=false
 DisorderSeedFile=file.txt
-Disorder_Strength=0
 
+Disorder_Strength=1
+
+DisorderType=Real
+#Precision_1
+#Real, RealPositive
 
 Temperature=0.00001
 
 Use_Scheduler=true
 Scheduler_File=dmrg_sched.csv
 
-dt=0.001
+dt=0.01
 t_anneal=7.0
 
-dt_measure=0.001
+dt_measure=0.01
 t_measure=7.0
 t_butterfly=0.0
 
